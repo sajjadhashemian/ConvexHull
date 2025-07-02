@@ -1,2 +1,2 @@
 # ConvexHull
-Fast and Scaleable Randomized Approximation of Convex Hull
+Fast and Scaleable Randomized Approximation Algorithm for Convex Hull
