@@ -47,17 +47,17 @@ class ConvexHullviaMVEE:
 
             # 1) find the closest MVEE point
             closest_ellipsoid_vector = project_onto_ellipsoid_surface(c, E, p)
-            p_hat = ellipsoid_normal(c, E, p)
+            p_hat = ellipsoid_normal(c, E, closest_ellipsoid_vector)
 
             # 2) build the rotation/reflection sending e1 → p_hat
             R = householder_matrix(e1, p_hat)
 
             # 3) rotate all directions in U
             U_rot = U @ R.T  # still shape (m,d)
-
             # 4) for each rotated direction, pick the supporting point in P
             #    (i.e. max dot with that direction)
             for u in U_rot:
+                # for u in [p_hat]:
                 # compute dot products
                 dots = P.dot(u)
                 s_idx = int(np.argmax(dots))
@@ -70,7 +70,7 @@ class ConvexHullviaMVEE:
             return S, extents
         return S
 
-    def compute(self, m=20, kappa=10.0, return_extents=True):
+    def compute(self, m=20, kappa=10.0, return_extents=False):
         """
         Computes the convex hull using MVEE and returns the hull vertices.
         """

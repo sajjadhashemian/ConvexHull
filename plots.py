@@ -74,8 +74,8 @@ class plots:
                 plt.arrow(
                     point[0],
                     point[1],
-                    direction[0],
-                    direction[1],
+                    1.5 * direction[0],
+                    1.5 * direction[1],
                     head_width=0,
                     head_length=0,
                     fc="b",
@@ -141,7 +141,7 @@ class plots:
         plt.scatter(cs[0], cs[1], c="g", marker="x", label="Center of MVEE")
         return plt
 
-    def plot_MVEE_convex_hull_extents(self, t=2):
+    def plot_MVEE_convex_hull_extents(self, t=5):
         """
         Plots the convex hull and its extents.
 
@@ -152,7 +152,6 @@ class plots:
 
         ConvHull = ConvexHullviaMVEE(points)
         S, extents, U = ConvHull.compute(m=t, return_extents=True)
-
         for u in U:
             plt.arrow(
                 0,
@@ -177,8 +176,8 @@ class plots:
                     direction[1],
                     head_width=0.1,
                     head_length=0.2,
-                    fc="r",
-                    ec="r",
+                    fc="g",
+                    ec="g",
                     alpha=0.2,
                     # label="Directional Extents",
                 )
@@ -188,7 +187,6 @@ class plots:
         plt = self.plt
         plt = self.convex_hull()
         plt = self.plot_directional_extents()
-        plt = self.plot_convex_hull_extents()
         plt = self.plot_MVEE()
         plt = self.plot_MVEE_convex_hull_extents()
         # plt.legend(bbox_to_anchor=(1.01, 1.02))
