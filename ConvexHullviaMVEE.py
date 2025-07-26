@@ -38,6 +38,8 @@ class ConvexHullviaMVEE:
         e1[0] = 1.0
 
         extents = dict([[tuple(x), []] for x in P])
+        perp_vec = dict([[tuple(x), []] for x in P])
+        rotated_vecs = dict([[tuple(x), []] for x in P])
 
         S_indices = set()
 
@@ -54,6 +56,8 @@ class ConvexHullviaMVEE:
 
             # 3) rotate all directions in U
             U_rot = U @ R.T  # still shape (m,d)
+            rotated_vecs[tuple(p)] = U_rot
+            perp_vec[tuple(p)] = p_hat
             # 4) for each rotated direction, pick the supporting point in P
             #    (i.e. max dot with that direction)
             for u in U_rot:
@@ -67,19 +71,19 @@ class ConvexHullviaMVEE:
         # assemble S as the unique selected points
         S = P[list(S_indices), :]
         if return_extents == True:
-            return S, extents
+            return S, extents, rotated_vecs, perp_vec
         return S
 
-    def compute(self, m=20, kappa=10.0, return_extents=False):
+    def compute(self, m=20, kappa=5, return_extents=False):
         """
         Computes the convex hull using MVEE and returns the hull vertices.
         """
         n, d = self.points.shape
         U = vMF(d, kappa).sample(m)
         c, E = MVEE(self.points)
-        S, extents = self.extents_estimation(U, E, c, return_extents)
+        S, extents, r, p = self.extents_estimation(U, E, c, return_extents)
         if return_extents == True:
-            return S, extents, U
+            return S, extents, U, r, p
         return S
 
 

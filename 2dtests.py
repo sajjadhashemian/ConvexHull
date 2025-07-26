@@ -1,51 +1,48 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
-from common import sample_input
+from common import sample_input, householder_matrix
 from plots import plots
 
 np.random.seed(41)
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
 
-import numpy as np
+
+def sample_sphere(n, d=2):
+    """
+    Sample n points uniformly from the surface of a d-dimensional sphere.
+    """
+    points = np.random.normal(size=(n, d))
+    points /= np.linalg.norm(points, axis=1, keepdims=True)
+    return points
 
 
-def sample_sphere_gaussian_approx(m, d, sigma):
-    # mean vector e1
-    mu = np.zeros(d)
-    mu[0] = 1.0
-
-    # sample m x d Gaussians
-    X = np.random.normal(loc=mu, scale=sigma, size=(10, 2))
-
-    # normalize each row to unit length
-    norms = np.linalg.norm(X, axis=1, keepdims=True)
-    V = X / norms
-    return V
+def sample_rotated(n, d=2):
+    """
+    Sample n points uniformly from a rotated d-dimensional sphere.
+    """
+    X = np.random.normal(loc=(0, 0), scale=(0.5, 1), size=(n, 2))
+    H = householder_matrix(np.array([1, 0]), np.array([-3, -1]))
+    X = X @ H.T
+    return X
 
 
 if __name__ == "__main__":
-    # m = 20
-    # kappa = 10.0  # higher → more tightly around e1
-    # S = convex_hull_via_mvee(_Z, m, kappa)
+    n = 50
 
     """
     Create a set of random points in 2D.
     """
-    # _Z = np.random.normal(loc=(0, 0), scale=0.5, size=(40, 2))
-
-    n = 40
-    A, B = np.random.normal(size=(n, 1)), np.random.normal(size=(n, 1))
-    _Z = np.hstack((A, B))
-    norms = np.linalg.norm(_Z, axis=1, keepdims=True)
-    # _Z = _Z / norms
-
+    X = sample_rotated(n)
+    # X = sample_sphere(n)
+    # X = sample_input()
     """
     Plot the convex hull of the points.
     """
-    hull = ConvexHull(_Z)
-    plt = plots(_Z, hull)
+    hull = ConvexHull(X)
+    plt = plots(X, hull)
     # x = plt.Plain()
     # x = plt.AllviaExtents()
     x = plt.AllviaMVEE()
+    # x = plt.plot_MVEE()
     x.show()

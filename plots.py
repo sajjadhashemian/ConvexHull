@@ -16,6 +16,7 @@ class plots:
     def __init__(self, points, hull):
         self.points = np.array(points)
         self.hull = hull
+        self.hull_points = points[hull.vertices]
         # Plot the points
         plt.plot(self.points[:, 0], self.points[:, 1], "o", label="Points")
         ax = plt.gca()
@@ -132,13 +133,15 @@ class plots:
         """
         plt = self.plt
         cs, Ps = MVEE(self.points)
-        step = 0.01
-        t = np.arange(0, 2 * np.pi + step, step)
-        y = np.vstack((np.cos(t), np.sin(t))).T
 
-        ellip = np.linalg.inv(Ps) @ (y + cs).T
-        plt.plot(ellip[0], ellip[1], color="b", label="MVEE Boundary")
-        plt.scatter(cs[0], cs[1], c="g", marker="x", label="Center of MVEE")
+        # Plot the ellipsoid
+        plt.scatter(cs[0], cs[1], c="g", marker="x", label="MVEE center")
+        theta = np.linspace(0, 2 * np.pi, 100)
+        circle = np.stack([np.cos(theta), np.sin(theta)])
+        # Transform the circle to the ellipsoid
+        L = np.linalg.cholesky(np.linalg.inv(Ps))  # A = (L^T L)^(-1)
+        ellip = (L @ circle).T + cs
+        plt.plot(ellip[:, 0], ellip[:, 1], "b-", label="MVEE")
         return plt
 
     def plot_MVEE_convex_hull_extents(self, t=5):
@@ -151,7 +154,9 @@ class plots:
         points, plt = self.points, self.plt
 
         ConvHull = ConvexHullviaMVEE(points)
-        S, extents, U = ConvHull.compute(m=t, return_extents=True)
+        S, extents, U, rotated_vecs, perp_vecs = ConvHull.compute(
+            m=t, return_extents=True
+        )
         for u in U:
             plt.arrow(
                 0,
@@ -181,6 +186,38 @@ class plots:
                     alpha=0.2,
                     # label="Directional Extents",
                 )
+
+        # for point, directions in rotated_vecs.items():
+        #     if point not in self.hull_points:
+        #         continue
+        #     for direction in directions:
+        #         plt.arrow(
+        #             point[0],
+        #             point[1],
+        #             direction[0],
+        #             direction[1],
+        #             head_width=0.1,
+        #             head_length=0.2,
+        #             fc="r",
+        #             ec="r",
+        #             alpha=0.2,
+        #             # label="Directional Extents",
+        #         )
+        for point, direction in perp_vecs.items():
+            if point not in self.hull_points:
+                continue
+            plt.arrow(
+                point[0],
+                point[1],
+                direction[0],
+                direction[1],
+                head_width=0.1,
+                head_length=0.5,
+                fc="r",
+                ec="r",
+                alpha=0.4,
+                # label="Directional Extents",
+            )
         return plt
 
     def AllviaMVEE(self):

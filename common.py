@@ -1,5 +1,6 @@
 import numpy as np
 import cvxpy as cp
+import numpy.linalg as la
 
 np.random.seed(41)
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
@@ -53,7 +54,7 @@ def householder_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return H
 
 
-def MVEE(points, tol: float = 1e-3):
+def old_MVEE(points, tol: float = 1e-3):
     """
     Finds the minimum-volume enclosing ellipsoid of a set of points in R^d
     by solving the log‐det‐type SDP in CVXPY.
@@ -106,7 +107,49 @@ def MVEE(points, tol: float = 1e-3):
     if prob.status not in ["optimal", "optimal_inaccurate"]:
         raise ValueError(f"Solver did not converge: {prob.status}")
 
+    print("MVEE:", c.value, "\n", P.value)
     return c.value, P.value
+
+
+def MVEE(points: np.ndarray, tol: float = 1e-5, max_iter: int = 1000):
+    """
+    Computes the minimum‐volume enclosing ellipsoid of a set of points (Khachiyan’s algorithm).
+    Returns center c and shape matrix A such that (x - c)^T A (x - c) ≤ 1.
+    """
+    P = np.asarray(points)
+    N, d = P.shape
+
+    # Build Q = [Pᵀ; 1ᵀ]
+    Q = np.vstack([P.T, np.ones(N)])
+    u = np.full(N, 1.0 / N)
+
+    for _ in range(max_iter):
+        V = Q @ np.diag(u) @ Q.T
+        invV = np.linalg.inv(V)
+        QT = Q.T  # shape (N, d+1)
+        # M_j = q_j^T V^{-1} q_j for each column q_j of Q
+        M = np.sum((QT @ invV) * QT, axis=1)
+        j = np.argmax(M)
+        max_M = M[j]
+
+        step = (max_M - d - 1) / ((d + 1) * (max_M - 1))
+        new_u = (1 - step) * u
+        new_u[j] += step
+
+        if np.linalg.norm(new_u - u) < tol:
+            u = new_u
+            break
+        u = new_u
+
+    # Center of ellipsoid
+    c = P.T @ u
+
+    # Covariance‐like matrix
+    cov = (P.T * u) @ P - np.outer(c, c)
+    # Shape matrix A
+    A = np.linalg.inv(cov) / d
+
+    return c, A
 
 
 def project_onto_ellipsoid_surface(
@@ -178,35 +221,34 @@ def project_onto_ellipsoid_surface(
     return y
 
 
-import numpy as np
-
-
-def ellipsoid_normal(
-    c: np.ndarray, P: np.ndarray, y: np.ndarray, unit: bool = True
-) -> np.ndarray:
+def ellipsoid_normal(c: np.ndarray, A: np.ndarray, v: np.ndarray) -> np.ndarray:
     """
-    Compute the (outward) normal vector to the ellipsoid surface
-      { x : ||P x - c|| = 1 }
-    at the surface‐point y.
+    Given an ellipsoid E = { x : (x - c)^T A (x - c) = 1 } (with A ≻ 0),
+    and a point v on its surface, returns the unit normal (perpendicular)
+    vector at v on E.
+
+    This u maximizes u ⋅ (v - c) over all unit u, and is proportional to the gradient:
+        ∇[(x - c)^T A (x - c)]|_{x=v} = 2 A (v - c).
+    The factor 2 cancels in normalization.
 
     Args:
-      c    : (d,)   center‐offset in the norm
-      P    : (d,d) shape matrix from MVEE
-      y    : (d,)   a point on the ellipsoid surface (||P y - c|| == 1)
-      unit : if True, return the unit normal; otherwise return the raw gradient
+        c: center of the ellipsoid, shape (d,)
+        A: shape matrix of the ellipsoid, shape (d, d)
+        v: point on the ellipsoid surface, shape (d,)
 
     Returns:
-      n    : (d,) the normal (unit‐length if unit=True)
+        u: unit normal vector at v, shape (d,)
     """
-    # the “residual” vector in the norm‐argument
-    u = P.dot(y) - c  # shape (d,)
 
-    # gradient of ||u|| w.r.t. x is P^T u
-    n = P.T.dot(u)  # shape (d,)
+    def normalize(v):
+        return v / np.linalg.norm(v)
 
-    if unit:
-        n = n / np.linalg.norm(n)
-    return n
+    # Compute gradient direction
+    w = A @ (v - c)
+    # L = np.linalg.cholesky(np.linalg.inv(A))  # A = (L^T L)^(-1)
+    # w = np.linalg.inv(L) @ (v - c).T
+    # Normalize to unit length
+    return normalize(w)
 
 
 # --- example usage ---
