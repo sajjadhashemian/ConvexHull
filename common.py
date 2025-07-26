@@ -5,42 +5,38 @@ import numpy.linalg as la
 np.random.seed(41)
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
 
+from scipy.stats import vonmises_fisher
+
 
 class vMF:
     """
-    Class for sampling from the von Mises-Fisher distribution.
+    Wrapper class for sampling from the von Mises-Fisher distribution using scipy.
     """
 
-    def __init__(self, d, kappa):
+    def __init__(self, d, kappa, mu=None):
+        """
+        :param d: Dimension of the ambient space (samples lie on S^{d-1} ⊂ R^d)
+        :param kappa: Concentration parameter (kappa = 0 is uniform on sphere)
+        :param mu: Mean direction (unit vector); defaults to [1, 0, ..., 0] if not provided
+        """
+        self.d = d
         self.kappa = kappa
-        self.d = int(d)
-
-    def _sample_weight(self, kappa, d):
-        # Ulrich’s method constants
-        b = (-2 * kappa + np.sqrt(4 * kappa**2 + (d - 1) ** 2)) / (d - 1)
-        x0 = (1 - b) / (1 + b)
-        c = kappa * x0 + (d - 1) * np.log(1 - x0**2)
-        while True:
-            # Beta-sample step
-            Z = np.random.beta((d - 1) / 2, (d - 1) / 2)
-            W = (1 - (1 + b) * Z) / (1 - (1 - b) * Z)
-            # Uniform for acceptance
-            U = np.random.rand()
-            if kappa * W + (d - 1) * np.log(1 - x0 * W) - c >= np.log(U):
-                return W
+        if mu is None:
+            mu = np.zeros(d)
+            mu[0] = 1.0
+        else:
+            mu = np.asarray(mu, dtype=float)
+            mu /= np.linalg.norm(mu)
+        self.mu = mu
+        self._dist = vonmises_fisher(mu=self.mu, kappa=self.kappa)
 
     def sample(self, m):
-        # Step 1: sample W = component along e1
-        W = np.array([self._sample_weight(self.kappa, self.d) for _ in range(m)])
-        # Step 2: sample (d-1)-dim isotropic Gaussian and normalize
-        V = np.random.normal(size=(m, self.d - 1))
-        V /= np.linalg.norm(V, axis=1, keepdims=True)
-        # Step 3: build samples
-        samples = np.zeros((m, self.d))
-        samples[:, 0] = W
-        # embed the (d-1)-dim orthonormal part
-        samples[:, 1:] = np.sqrt(1 - W**2)[:, None] * V
-        return samples
+        """
+        Draw m samples from the von Mises-Fisher distribution.
+        :param m: Number of samples
+        :return: (m x d) array of unit vectors
+        """
+        return self._dist.rvs(size=m)
 
 
 def householder_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:

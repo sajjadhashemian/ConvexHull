@@ -21,7 +21,7 @@ def sample_rotated(n, d=2):
     """
     Sample n points uniformly from a rotated d-dimensional sphere.
     """
-    X = np.random.normal(loc=(0, 0), scale=(0.5, 1), size=(n, 2))
+    X = np.random.normal(loc=(0, 0), scale=(0.2, 1), size=(n, 2))
     H = householder_matrix(np.array([1, 0]), np.array([-3, -1]))
     X = X @ H.T
     return X
@@ -29,6 +29,7 @@ def sample_rotated(n, d=2):
 
 if __name__ == "__main__":
     n = 50
+    n = 10
 
     """
     Create a set of random points in 2D.

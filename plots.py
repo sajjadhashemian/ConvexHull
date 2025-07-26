@@ -154,9 +154,7 @@ class plots:
         points, plt = self.points, self.plt
 
         ConvHull = ConvexHullviaMVEE(points)
-        S, extents, U, rotated_vecs, perp_vecs = ConvHull.compute(
-            m=t, return_extents=True
-        )
+        S, extents, U, rotated_vecs, perp_vecs = ConvHull.compute(return_extents=True)
         for u in U:
             plt.arrow(
                 0,

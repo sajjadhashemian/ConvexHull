@@ -74,7 +74,7 @@ class ConvexHullviaMVEE:
             return S, extents, rotated_vecs, perp_vec
         return S
 
-    def compute(self, m=20, kappa=5, return_extents=False):
+    def compute(self, m=3, kappa=5, return_extents=False):
         """
         Computes the convex hull using MVEE and returns the hull vertices.
         """
