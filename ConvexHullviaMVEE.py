@@ -2,11 +2,8 @@ import numpy as np
 from common import (
     vMF,
     householder_matrix,
-    MVEE,
-    project_onto_ellipsoid_surface,
-    ellipsoid_normal,
 )
-
+from Ellipsoid import Ellipsoid
 from common import sample_input
 
 np.random.seed(41)
@@ -21,7 +18,7 @@ class ConvexHullviaMVEE:
     def __init__(self, points):
         self.points = np.array(points)
 
-    def extents_estimation(self, U, E, c, return_extents=True):
+    def extents_estimation(self, U, E, return_extents=True):
         """
         Implements the “Extents Estimation” subroutine.
         Inputs:
@@ -48,8 +45,8 @@ class ConvexHullviaMVEE:
             p = P[i]
 
             # 1) find the closest MVEE point
-            closest_ellipsoid_vector = project_onto_ellipsoid_surface(c, E, p)
-            p_hat = ellipsoid_normal(c, E, closest_ellipsoid_vector)
+            closest_ellipsoid_vector = E.project_onto_surface(p)
+            p_hat = E.normal_vector(closest_ellipsoid_vector)
 
             # 2) build the rotation/reflection sending e1 → p_hat
             R = householder_matrix(e1, p_hat)
@@ -80,8 +77,8 @@ class ConvexHullviaMVEE:
         """
         n, d = self.points.shape
         U = vMF(d, kappa).sample(m)
-        c, E = MVEE(self.points)
-        S, extents, r, p = self.extents_estimation(U, E, c, return_extents)
+        E = Ellipsoid(self.points)
+        S, extents, r, p = self.extents_estimation(U, E, return_extents)
         if return_extents == True:
             return S, extents, U, r, p
         return S

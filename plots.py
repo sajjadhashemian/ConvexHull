@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ConvexHullviaExtents import ConvexHullviaExtents
 from ConvexHullviaMVEE import ConvexHullviaMVEE
-from common import MVEE
+from Ellipsoid import Ellipsoid
 
 np.random.seed(41)
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
@@ -132,7 +132,8 @@ class plots:
         A (array-like): Shape matrix of the MVEE.
         """
         plt = self.plt
-        cs, Ps = MVEE(self.points)
+        E = Ellipsoid(self.points)
+        cs, Ps = E.center, E.shape_matrix
 
         # Plot the ellipsoid
         plt.scatter(cs[0], cs[1], c="g", marker="x", label="MVEE center")
