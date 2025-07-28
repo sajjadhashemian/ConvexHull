@@ -1,12 +1,15 @@
 import numpy as np
 import cvxpy as cp
+import random
+from typing import List, Tuple
 
 np.random.seed(41)
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
+random.seed(41)
 
 
 class Ellipsoid:
-    def __init__(self, points, center=None, shape_matrix=None):
+    def __init__(self, points, center=None, shape_matrix=None, method="Khachiyan"):
         """
         Initialize the Ellipsoid with a set of points, center, and shape matrix.
         If center and shape_matrix are not provided, they will be computed.
@@ -15,12 +18,12 @@ class Ellipsoid:
         self.n, self.d = self.points.shape
 
         if center is None or shape_matrix is None:
-            self.center, self.shape_matrix = self.compute()
+            self.center, self.shape_matrix = self.compute(method=method)
         else:
             self.center = np.asarray(center)
             self.shape_matrix = np.asarray(shape_matrix)
 
-    def old_MVEE(self, tol: float = 1e-3):
+    def SDP_minimum_volume_enclosing_ellipsoid(self, tol: float = 1e-3):
         """
         Finds the minimum-volume enclosing ellipsoid of a set of points in R^d
         by solving the log‐det‐type SDP in CVXPY.
@@ -77,7 +80,9 @@ class Ellipsoid:
 
         return c.value, P.value
 
-    def MVEE(self, tol: float = 1e-5, max_iter: int = 1000):
+    def khachiyan_minimum_volume_enclosing_ellipsoid(
+        self, tol: float = 1e-5, max_iter: int = 1000
+    ):
         """
         Computes the minimum‐volume enclosing ellipsoid of a set of points (Khachiyan’s algorithm).
         Returns center c and shape matrix A such that (x - c)^T A (x - c) ≤ 1.
@@ -117,15 +122,75 @@ class Ellipsoid:
 
         return c, A
 
+    def minimum_enclosing_sphere(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Computes the minimum‐enclosing sphere of self.points via Welzl’s algorithm.
+        Returns (c, A) where c is the center (shape (d,))
+        and A = I / r^2 so that (x - c)^T A (x - c) ≤ 1 defines the sphere.
+        """
+
+        def _ball_from(R: List[np.ndarray]) -> Tuple[np.ndarray, float]:
+            # Trivial sphere from up to d+1 points
+            if not R:
+                return np.zeros(self.d), 0.0
+            if len(R) == 1:
+                return R[0].copy(), 0.0
+            if len(R) == 2:
+                c = (R[0] + R[1]) / 2
+                r = np.linalg.norm(R[0] - c)
+                return c, r
+            # Solve linear system for ≥3 points
+            mat = []
+            rhs = []
+            for p in R[1:]:
+                mat.append(2 * (p - R[0]))
+                rhs.append(np.dot(p, p) - np.dot(R[0], R[0]))
+            mat = np.vstack(mat)
+            rhs = np.array(rhs)
+            c = np.linalg.solve(mat, rhs)
+            r = np.linalg.norm(R[0] - c)
+            return c, r
+
+        def _welzl(
+            P: List[np.ndarray], R: List[np.ndarray]
+        ) -> Tuple[np.ndarray, float]:
+            if not P or len(R) == self.d + 1:
+                return _ball_from(R)
+            p = P.pop(random.randrange(len(P)))
+            c, r = _welzl(P, R)
+            if np.linalg.norm(p - c) <= r + 1e-12:
+                P.append(p)
+                return c, r
+            R.append(p)
+            c, r = _welzl(P, R)
+            R.pop()
+            P.append(p)
+            return c, r
+
+        # Prepare and shuffle
+        P_list = [p.copy() for p in self.points]
+        random.shuffle(P_list)
+        center, radius = _welzl(P_list, [])
+
+        if radius == 0:
+            # Degenerate: infinite A
+            A = np.eye(self.d) * np.inf
+        else:
+            A = np.eye(self.d) / (radius * radius)
+
+        return center, A
+
     def compute(self, method="Khachiyan"):
         """
         Computes the minimum-volume enclosing ellipsoid (MVEE) of the points.
         Uses either Khachiyan's algorithm or a CVXPY-based approach.
         """
         if method == "Khachiyan":
-            return self.MVEE()
-        elif method == "CVXPY":
-            return self.old_MVEE()
+            return self.khachiyan_minimum_volume_enclosing_ellipsoid()
+        elif method == "SDP":
+            return self.SDP_minimum_volume_enclosing_ellipsoid()
+        elif method == "Sphere":
+            return self.minimum_enclosing_sphere()
         else:
             raise ValueError(
                 "Unknown method for computing MVEE. Use 'Khachiyan' or 'CVXPY'."
