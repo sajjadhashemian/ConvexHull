@@ -1,4 +1,5 @@
 import numpy as np
+from common import normalize
 
 np.random.seed(41)
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
@@ -14,7 +15,7 @@ class ConvexHullviaExtents:
         self.X = np.array(points)
         self.extents, self.random_extents, self.extents_max = None, None, None
 
-    def get_extents(self, t=1000):
+    def get_extents(self, t=1000, return_max_extent=False):
         """
         Calculates the directions of the convex hull's extents in 2D.
         """
@@ -30,6 +31,14 @@ class ConvexHullviaExtents:
         for i, direction in enumerate(directions):
             x = self.X[np.argmax(dot_products[:, i])]
             extents[tuple(x)].append(direction)
+        if return_max_extent:
+            extents_max = dict([[tuple(x), []] for x in self.X])
+            for i, x in enumerate(self.X):
+                extents_max[tuple(x)] = normalize(
+                    directions[np.argmax(dot_products[i, :])]
+                )
+
+            return extents, extents_max
         return extents
 
     def get_random_extents(self, t, return_approx_hull=False):

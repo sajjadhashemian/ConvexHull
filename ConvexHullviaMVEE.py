@@ -45,7 +45,7 @@ class ConvexHullviaMVEE:
             p = P[i]
 
             # 1) find the closest MVEE point
-            closest_ellipsoid_vector = E.project_onto_surface(p)
+            closest_ellipsoid_vector = E.project(p)
             p_hat = E.normal_vector(closest_ellipsoid_vector)
 
             # 2) build the rotation/reflection sending e1 → p_hat

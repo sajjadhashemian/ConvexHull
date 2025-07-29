@@ -8,6 +8,13 @@ np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
 from scipy.stats import vonmises_fisher
 
 
+def normalize(v):
+    """
+    Normalize a vector to unit length.
+    """
+    return v / np.linalg.norm(v)
+
+
 class vMF:
     """
     Wrapper class for sampling from the von Mises-Fisher distribution using scipy.

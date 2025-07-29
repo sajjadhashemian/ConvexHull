@@ -196,75 +196,59 @@ class Ellipsoid:
                 "Unknown method for computing MVEE. Use 'Khachiyan' or 'CVXPY'."
             )
 
-    def project_onto_surface(
-        self,
-        x,
-        tol=1e-4,
-        maxiter=100,
-    ):
+    def project(self, x, tol=1e-6, max_iter=100):
         """
-        Returns the point y on the SURFACE of the ellipsoid { x : ||P x - c|| <= 1 }
-        that is closest (in Euclidean norm) to the query point x.
-
-        Args:
-        c       : (d,) array, the 'c' returned by your MVEE solver
-        P       : (d,d) array, the 'P' returned by your MVEE solver
-        x       : (d,) array, the query point
-        tol     : tolerance for the root finding
-        maxiter : maximum Newton iterations
-
-        Returns:
-        y       : (d,) array, the projection of x onto the SURFACE of the ellipsoid
+        Project point x onto the surface of the ellipsoid defined by
+        (y - center)^T shape_matrix^-1 (y - center) = 1.
         """
-        P = np.asarray(self.shape_matrix)
-        c = np.asarray(self.center)
+        x = np.asarray(x)
+        z = x - self.center
 
-        # build Q = P^T P and center of ellipsoid in original space
-        Q = P.T @ P
-        x0 = np.linalg.solve(P, c)  # center of ellipsoid
-        # translate so center is at origin
-        d = x - x0
+        # Eigen-decompose shape_matrix: M = U @ diag(e) @ U.T
+        e, U = np.linalg.eigh(self.shape_matrix)
+        y = U.T @ z
 
-        # spectral decomposition of Q = V diag(q) V^T
-        q, V = np.linalg.eigh(Q)  # q = eigenvalues, V = orthonormal eigenvectors
-        z = V.T.dot(d)  # coordinates of (x-x0) in the eigenbasis
+        # φ(λ) = Σ_i [e_i * y_i^2 / (1 + λ e_i)^2] − 1
+        def phi(lam):
+            return np.sum(e * y**2 / (1.0 + lam * e) ** 2) - 1.0
 
-        # helper: f(λ) = Σ_i [ q_i * z_i^2 / (1 + λ q_i)^2 ] - 1
-        def f(lmbda):
-            return np.sum((q * z**2) / (1.0 + lmbda * q) ** 2) - 1.0
+        # φ'(λ) = −2 Σ_i [e_i^2 * y_i^2 / (1 + λ e_i)^3]
+        def phi_prime(lam):
+            return -2.0 * np.sum(e**2 * y**2 / (1.0 + lam * e) ** 3)
 
-        # if x is “outside” or “on” the ellipsoid f(0) ≥ 0, we find λ ≥ 0
-        f0 = f(0.0)
-        if f0 < 0:
-            # x is strictly inside: the closest surface‐point is the radial intersection
-            scale = 1.0 / np.sqrt((d @ (Q @ d)))
-            return x0 + d * scale
+        # Bracket a root for φ(λ)=0
+        lam0 = 0.0
+        f0 = phi(lam0)
+        # Domain of λ is (-1/max(e), ∞)
+        lam_min = -1.0 / np.max(e) + 1e-12
 
-        # otherwise x is outside or on boundary: we need the unique λ > 0 s.t. f(λ)=0
-        # bracket [λ_lo=0, λ_hi] with f(λ_lo)≥0, f(λ_hi)<0
-        l_lo, l_hi = 0.0, 1.0
-        if f(l_hi) > 0:
-            # expand until f(l_hi)<0
-            while f(l_hi) > 0:
-                l_hi *= 2.0
+        if f0 > 0:
+            lam_lo, lam_hi = lam0, 1.0
+            while phi(lam_hi) > 0:
+                lam_hi *= 2.0
+        else:
+            lam_lo, lam_hi = lam_min, lam0
 
-        # initial guess by secant
-        lam = l_hi * f0 / (f0 - f(l_hi))
-
-        # Newton–Raphson
-        for _ in range(maxiter):
-            val = f(lam)
-            if abs(val) < tol:
+        lam = 0.5 * (lam_lo + lam_hi)
+        for _ in range(max_iter):
+            f = phi(lam)
+            if abs(f) < tol:
                 break
-            # derivative: f'(λ) = -2 Σ_i [ q_i^2 * z_i^2 / (1 + λ q_i)^3 ]
-            fp = -2.0 * np.sum((q**2 * z**2) / (1.0 + lam * q) ** 3)
-            lam -= val / fp
-            # keep in [0, l_hi]
-            lam = max(0.0, min(lam, l_hi))
+            df = phi_prime(lam)
+            lam_new = lam - f / df
+            # Safeguard: keep within [lam_lo, lam_hi]
+            if not (lam_lo < lam_new < lam_hi):
+                lam_new = 0.5 * (lam_lo + lam_hi)
+            # Update bracket
+            if phi(lam_new) > 0:
+                lam_lo = lam_new
+            else:
+                lam_hi = lam_new
+            lam = lam_new
 
-        # now form y - x0 = (I + λ Q)^{-1} (x - x0) = V diag(1/(1+λ q_i)) z
-        y = x0 + V.dot(z / (1.0 + lam * q))
-        return y
+        # Compute projected point on surface
+        w = y / (1.0 + lam * e)
+        return U @ w + self.center
 
     def normal_vector(self, v: np.ndarray) -> np.ndarray:
         """
