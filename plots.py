@@ -40,13 +40,13 @@ class plots:
             plt.plot(points[simplex, 0], points[simplex, 1], "k-")
         plt.scatter(0, 0, c="black", zorder=11111, label="Origin")
 
-        # plt.plot(
-        #     points[hull.vertices[:], 0],
-        #     points[hull.vertices[:], 1],
-        #     "o",
-        #     c="r",
-        #     label="Hull Vertices",
-        # )
+        plt.plot(
+            points[hull.vertices[:], 0],
+            points[hull.vertices[:], 1],
+            "o",
+            c="r",
+            label="Hull Vertices",
+        )
         plt.rcParams["figure.figsize"] = (10, 6)
 
         plt.fill(
@@ -135,7 +135,7 @@ class plots:
         plt = self.convex_hull()
         plt = self.plot_directional_extents()
         plt = self.plot_convex_hull_extents()
-        # plt.legend(bbox_to_anchor=(1.01, 1.02))
+        plt.legend(bbox_to_anchor=(1.01, 1.02))
         plt.show()
         return plt
 
@@ -150,7 +150,7 @@ class plots:
         plt = self.plt
         E = Ellipsoid(self.points, method="Khachiyan")
         cs, Ps = E.center, E.shape_matrix
-
+        print(cs, Ps)
         # Plot the ellipsoid
         plt.scatter(cs[0], cs[1], c="g", marker="x", label="MVEE center")
         theta = np.linspace(0, 2 * np.pi, 100)
@@ -273,14 +273,15 @@ class plots:
 
         return plt
 
-    def AllviaMVEE(self):
+    def AllviaMVEE(self, return_max_extent=False):
         plt = self.plt
         plt = self.convex_hull()
-        plt = self.plot_directional_extents(return_max_extent=True)
+        plt = self.plot_directional_extents(return_max_extent=return_max_extent)
         plt = self.plot_MVEE()
         plt = self.plot_MVEE_convex_hull_extents()
-        plt = self.plot_MVEE_projections()
-        # plt.legend(bbox_to_anchor=(1.01, 1.02))
+        if return_max_extent:
+            plt = self.plot_MVEE_projections()
+        plt.legend(bbox_to_anchor=(1.01, 1.02))
         plt.show()
         return plt
 
@@ -288,6 +289,6 @@ class plots:
         plt = self.plt
         plt = self.convex_hull()
         plt = self.plot_directional_extents()
-        # plt.legend(bbox_to_anchor=(1.01, 1.02))
+        plt.legend(bbox_to_anchor=(1.01, 1.02))
         plt.show()
         return plt
